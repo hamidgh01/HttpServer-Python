@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# IDEs and Editors
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.bak
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Database
+*.sqlite3
+*.db
+*.db-journal
+
+# Environment variables
+.env
+.flaskenv
+
+# Logs and temporary files
+*.log
+tmp/
+temp/
+
+# Build artifacts
+dist/
+build/
+
+# ...
+project_structure.txt
+notes.txt
+.flake8
