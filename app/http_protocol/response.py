@@ -41,7 +41,7 @@ class HTTPResponse:
         self.body = body
         self.mem_type = mem_type
 
-    def to_bytes(self) -> bytes:
+    def build_response(self) -> bytes:
         """ Convert response-object into raw HTTP bytes.
         Build a simple HTTP/1.1 response with required headers:
         - Content-Length

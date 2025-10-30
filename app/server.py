@@ -6,6 +6,7 @@ from typing import Optional
 import socket
 
 from app.config.logging import logger
+from app.connection import ConnectionHandler
 
 
 class HTTPServer:
@@ -44,11 +45,10 @@ class HTTPServer:
             while True:
                 logger.info("Waiting for a connection...")
                 conn, addr = self._sock.accept()
-                # extract connection-info ...
                 logger.info("[+] Accepted connection from '%s:%d'", *addr)
                 try:
-                    # handle the connection and received HTTPRequest here
-                    pass
+                    handler = ConnectionHandler(conn, addr)
+                    handler.handle_connection()
                 except Exception as e:
                     logger.exception(
                         "Error handling client %s:%d: %s", *addr, e
