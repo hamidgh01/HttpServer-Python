@@ -1,5 +1,5 @@
 import logging
-# from settings import ...
+from app.config import settings
 
 
 logging.basicConfig(
@@ -8,4 +8,4 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 
-logger = logging.getLogger("HTTPServer")  # put setting.PROJECT_NAME here
+logger = logging.getLogger(settings.PROJECT_NAME)
