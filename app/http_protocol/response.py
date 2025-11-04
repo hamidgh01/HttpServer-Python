@@ -60,7 +60,7 @@ class HTTPResponse:
         """
 
         headers = self._base_headers()
-        if transfer_chunked:
+        if self.chunked and self.iter_body:  # chunked transferring provided
             headers["transfer-encoding"] = "chunked"
             headers.pop("content-length", None)
         # add user headers:
@@ -75,17 +75,16 @@ class HTTPResponse:
         http_header_block = status_line + headers_lines + empty_line
         http_header_block_bytes = http_header_block.encode("utf-8")
 
-        if self.is_for_head_method:
+        if self.is_for_head_method or (self.chunked and self.iter_body):
             return http_header_block_bytes
+            # when self.chunked is True and self.iter_body is provided:
+            # we have "chunked body transferring" -> so:
+            # send only Http-Header first / then stream body chunks
 
         if not self.chunked and self.body:
-            http_response = http_header_block_bytes + self.body
-        elif self.chunked and self.iter_body:
-            http_response = http_header_block_bytes
+            return http_header_block_bytes + self.body
         else:
-            raise ...  # ToDo: handle here later
-
-        return http_response  # in bytes
+            raise ...  # ToDo: handle here later (Internal server error)
 
     def _status_line(self) -> str:
         """
