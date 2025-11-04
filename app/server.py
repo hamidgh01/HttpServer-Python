@@ -4,8 +4,10 @@ ToDo: complete the documentation for HTTPServer class later.
 
 from typing import Optional
 import socket
+import signal
 
-from app.config.logging import logger
+from app.config import settings
+from app.logging import logger
 from app.connection import ConnectionHandler
 
 
@@ -21,13 +23,15 @@ class HTTPServer:
         self,
         host: str = "127.0.0.1",
         port: int = 8080,
-        backlog: int = 5,
+        backlog: int = 128,
+        conn_timeout: float = settings.TCP_CONNECTION_TIMEOUT,
         development_mode: bool = True
     ):
-        self.host = host
-        self.port = port
-        self.backlog = backlog
-        self._dev_mode = development_mode
+        self.host: str = host
+        self.port: int = port
+        self.backlog: int = backlog
+        self.conn_timeout: float = conn_timeout  # as keep-alive timeout
+        self._dev_mode: bool = development_mode
         self._sock: Optional[socket.socket] = None
         self._running: bool = False
 
@@ -41,24 +45,32 @@ class HTTPServer:
         self._sock.listen(self.backlog)
         self._running = True
 
+        # Allow CTRL+C to break immediately
+        def _sigint(signum, frame):
+            raise KeyboardInterrupt()
+
+        signal.signal(signal.SIGINT, _sigint)
+
         try:
             while True:
                 logger.info("Waiting for a connection...")
-                conn, addr = self._sock.accept()
-                logger.info("[+] Accepted connection from '%s:%d'", *addr)
+                connection, address = self._sock.accept()
+                logger.info("[+] Accepted connection from '%s:%d'", *address)
                 try:
-                    handler = ConnectionHandler(conn, addr)
+                    handler = ConnectionHandler(
+                        connection, address, conn_timeout=self.conn_timeout
+                    )
                     handler.handle_connection()
                 except Exception as e:
                     logger.exception(
-                        "Error handling client %s:%d: %s", *addr, e
+                        "Error handling client %s:%d: %s", *address, e
                     )
                 finally:
                     try:
-                        conn.close()
+                        connection.close()
                     except Exception:
                         pass
-                    logger.info("[x] Closed connection: '%s:%d'\n", *addr)
+                    logger.info("[x] Closed connection: '%s:%d'\n", *address)
         except KeyboardInterrupt:
             print("\nShutting down server...")
         finally:
