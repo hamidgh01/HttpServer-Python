@@ -8,7 +8,7 @@ as follows:
 │ ...                                     │
 │                                         │ empty line
 │ data:                                   │
-│ cand be:                                │
+│ can be:                                 │
 │ - text/plain                            │ Body
 │ - text/html                             │
 │ - application/json                      │
@@ -16,15 +16,11 @@ as follows:
 +-----------------------------------------+
 """
 
-from typing import Optional
+from typing import Optional, Callable
+from datetime import datetime, timezone
 
-
-default_response_body = b"""
-<br>
-<h1 style='text-align: center;'>
-  I'm developing my own HTTPServer... :)))
-</h1>
-"""
+from app.config import settings
+from .status import STATUS_MESSAGES
 
 
 class HTTPResponse:
@@ -33,46 +29,87 @@ class HTTPResponse:
         self,
         status_code: int = 200,
         headers: Optional[dict[str, str]] = None,
-        body: bytes = default_response_body,
-        mem_type: str = "text/html"
+        body: bytes = b"",
+        mem_type: Optional[str] = None,
+        chunked: bool = False,
+        iter_body: Optional[Callable[[], bytes]] = None,
+        is_for_head_method: bool = False
     ):
-        self.status_code = status_code
-        self.headers = headers or {}
-        self.body = body
-        self.mem_type = mem_type
+        self.status_code: int = status_code
+        self.headers: dict[str, str] = headers or {}
+        self.body: bytes = body
+        self.mem_type: Optional[str] = mem_type
+        self.chunked: bool = chunked
+        self.iter_body: Callable[[], bytes] = iter_body
+        self.is_for_head_method: bool = is_for_head_method
 
-    def build_response(self) -> bytes:
-        """ Convert response-object into raw HTTP bytes.
-        Build a simple HTTP/1.1 response with required headers:
-        - Content-Length
-        - Content-Type
-        - Connection: close
+    def build_response(self, transfer_chunked: bool = False) -> bytes:
+        """ builds and returns a simple HTTP/1.1 HttpResponse (in bytes)
+        steps:
+        1- build and initialize `headers` dict using self._base_headers()
+        2- few changes in `headers` base on 'transfer_chunked' parameter
+        3- add provided headers for response (self.headers) to `headers` dict
+        4- get Status-line / join `headers` into a string / add an empty-line
+           -> concatenate them -> convert to 'bytes' -> "HttpHeader block"
+        then:
+        _ if HEAD method is requested -> return "HttpHeader block" (bytes)
+        _ for chunked body transferring -> first send "HttpHeader" (bytes),
+          then send body-chunks using 'self.iter_body'
+        _ to build HttpResponse completely -> add Response-Body (self.body)
+          to "HttpHeader" and build the whole HttpResponse and return
         """
 
-        body = self.body
-        reason = self._get_reason_phrase()
+        headers = self._base_headers()
+        if transfer_chunked:
+            headers["transfer-encoding"] = "chunked"
+            headers.pop("content-length", None)
+        # add user headers:
+        for k, v in self.headers.items():
+            # don't overwrite headers provided by `self._base_headers()`
+            if (key := k.lower()) not in headers:
+                headers[key] = v
 
-        # Base headers
-        headers = {
-            "Server": "HTTPServer-by-hamidgh01/0.1",
-            "Content-Length": str(len(body)),
-            "Content-Type": f"{self.mem_type}; charset=utf-8",
-            "Connection": "close",
-            **self.headers,
-        }
-
-        status_line = f"HTTP/1.1 {self.status_code} {reason}\r\n"
-        headers_line = "".join(f"{k}: {v}\r\n" for k, v in headers.items())
+        status_line = self._status_line()
+        headers_lines = "".join(f"{k}: {v}\r\n" for k, v in headers.items())
         empty_line = "\r\n"
+        http_header_block = status_line + headers_lines + empty_line
+        http_header_block_bytes = http_header_block.encode("utf-8")
 
-        return (status_line + headers_line + empty_line).encode("utf-8") + body
+        if self.is_for_head_method:
+            return http_header_block_bytes
 
-    def _get_reason_phrase(self) -> str:
-        """Return standard reason phrase for given status."""
-        phrases = {
-            200: "OK",
-            400: "Bad Request",
-            404: "Not Found",
-            500: "Internal Server Error",
+        if not self.chunked and self.body:
+            http_response = http_header_block_bytes + self.body
+        elif self.chunked and self.iter_body:
+            http_response = http_header_block_bytes
+        else:
+            raise ...  # ToDo: handle here later
+
+        return http_response  # in bytes
+
+    def _status_line(self) -> str:
+        """
+        builds the first line of Http-Header (Status-Line) for HttpResponse.
+        HttpResponse Status-Line schema: `<version> <status-code> <reason>`
+        """
+        message = STATUS_MESSAGES.get(self.status_code, "Unknown")
+        return f"HTTP/1.1 {self.status_code} {message}\r\n"
+
+    def _base_headers(self) -> dict[str, str]:
+        """
+        provides base (default) Headers for HttpResponse
+        (doesn't add 'content-length' & 'content-type' headers if
+        the Http-Response is preparing for HEAD method)
+        """
+        now_ = datetime.now(tz=timezone.utc)
+        default_headers = {
+            "date": now_.strftime("%a, %d %b %Y %H:%M:%S GMT"),
+            "server": settings.PROJECT_NAME,
         }
-        return phrases.get(self.status_code, "Unknown")
+        if not self.is_for_head_method:
+            if not self.chunked and self.body:
+                default_headers["content-length"] = str(len(self.body))
+            if self.mem_type:
+                default_headers["content-type"] = self.mem_type
+
+        return default_headers
