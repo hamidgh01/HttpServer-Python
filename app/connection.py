@@ -169,7 +169,7 @@ class ConnectionHandler:
             response = HTTPResponse(body=body, mem_type="text/html")
             return response
 
-    def _read_until_body_header_terminator(self):
+    def _read_until_body_header_terminator(self) -> tuple[bytes, bytes]:
         """
         Read from socket until the terminator ('\r\n\r\n') is found.
         This uses a buffer and may read more bytes than strictly necessary;
