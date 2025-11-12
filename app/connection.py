@@ -3,9 +3,10 @@ import socket
 from app.config import settings
 from app.logging import logger
 
-from app.http_protocol.parser import HTTPParser
-from app.http_protocol.response import HTTPResponse
-from app.http_protocol.request import HTTPRequest
+from app.http.parser import HTTPParser
+from app.http.response import HTTPResponse
+from app.http.request import HTTPRequest
+from app.handler import RequestHandler
 
 
 class ConnectionHandler:
@@ -61,7 +62,7 @@ class ConnectionHandler:
 
                 # step_2: analyze HTTPRequest-Obj -> proper HTTPResponse-Obj
                 try:
-                    response_obj = self._handle_request(request)
+                    response_obj = RequestHandler.handle_request(request)
                 except Exception as e:
                     logger.exception("Error while handling request: %s", e)
                     response_obj = HTTPResponse(
@@ -97,8 +98,7 @@ class ConnectionHandler:
                     requests_count += 1
                     self.conn.settimeout(self.keepalive_timeout)
                     continue
-                else:
-                    break
+                break  # self._keep_connection_alive(request) -> False
 
             except socket.timeout:
                 logger.debug("Connection timed out (idle)")
@@ -142,32 +142,8 @@ class ConnectionHandler:
             )
             return request
         except Exception as err:
-            logger.info(f"[!] Failed to parse request: {err}")
+            logger.info("[!] Failed to parse request: %s", err)
             return None
-
-    @staticmethod
-    def _handle_request(request: HTTPRequest) -> HTTPResponse:
-        """
-        gets a HTTPRequest-Obj, analyze it, and build a proper HTTPResponse-Obj
-        """
-        if request.method.upper() == "HEAD":  # just send `Headers`
-            response_obj = HTTPResponse(body=b"", is_for_head_method=True)
-            return response_obj
-        # elif ...:
-        #   handle 'routing'
-        #   handle "Expect: 100-continue"
-        #   handle "provide chunk body transferring properly"
-        #   etc...
-        else:
-            body = (
-                f"<br>"
-                f"<h1 style='text-align: center;'>"
-                f"  I'm developing my own HTTPServer... :)))\n"
-                f"You requested {request.path!r}\n"
-                f"</h1>"
-            ).encode("utf-8")
-            response = HTTPResponse(body=body, mem_type="text/html")
-            return response
 
     def _read_until_body_header_terminator(self) -> tuple[bytes, bytes]:
         """
@@ -210,11 +186,8 @@ class ConnectionHandler:
             # For HTTP/1.1 default is `keep-alive` unless "Connection: close"
             if connection_header.lower() == "close":
                 return False
-            else:
-                return True
-        else:
-            # For HTTP/1.0 default is `close` unless "Connection: keep-alive"
-            if connection_header.lower() == "keep-alive":
-                return True
-            else:
-                return False
+            return True
+        # For HTTP/1.0 default is `close` unless "Connection: keep-alive"
+        if connection_header.lower() == "keep-alive":
+            return True
+        return False

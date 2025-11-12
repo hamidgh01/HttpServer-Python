@@ -50,3 +50,5 @@ build/
 project_structure.txt
 notes.txt
 .flake8
+*.drawio
+*.drawio.*

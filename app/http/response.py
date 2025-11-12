@@ -43,11 +43,11 @@ class HTTPResponse:
         self.iter_body: Callable[[], bytes] = iter_body
         self.is_for_head_method: bool = is_for_head_method
 
-    def build_response(self, transfer_chunked: bool = False) -> bytes:
+    def build_response(self) -> bytes:
         """ builds and returns a simple HTTP/1.1 HttpResponse (in bytes)
         steps:
         1- build and initialize `headers` dict using self._base_headers()
-        2- few changes in `headers` base on 'transfer_chunked' parameter
+        2- few changes in `headers` base on 'self.chunked' and 'self.iter_body'
         3- add provided headers for response (self.headers) to `headers` dict
         4- get Status-line / join `headers` into a string / add an empty-line
            -> concatenate them -> convert to 'bytes' -> "HttpHeader block"

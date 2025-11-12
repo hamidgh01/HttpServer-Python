@@ -1,7 +1,3 @@
-"""
-ToDo: complete the documentation for HTTPServer class later.
-"""
-
 from typing import Optional
 import socket
 import signal
@@ -15,10 +11,10 @@ from app.connection import ConnectionHandler
 
 class HTTPServer:
     """
-    a simple, non-blocking, and multithreaded TCP server using raw sockets.
-    it actually handles only Network-layer logic. handling Application-layer
-    logic (parsing Http-Requests and building Http-Responses) is done by
-    'ConnectionHandler' and 'HTTPParser' classes!
+    A simple, non-blocking, and multithreaded TCP server using raw sockets.
+    It actually handles only Network-layer logic. The Application-layer
+    logic (parsing Http-Requests and building Http-Responses) is handled by
+    'ConnectionHandler', 'RequestHandler' and 'HTTPParser' classes!
     """
 
     def __init__(self):
@@ -40,7 +36,9 @@ class HTTPServer:
         self._running: bool = False
 
     def start(self):
-        logger.info(f"Server is running on http://{self.host}:{self.port}\n")
+        logger.info(
+            "Server is running on http://%s:%d\n", self.host, self.port
+        )
 
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         if self._dev_mode:  # Allow quick reuse for development
@@ -100,9 +98,7 @@ class HTTPServer:
             logger.info("Handling connection from '%s:%d'", *address)
             handler.handle_connection()
         except Exception as e:
-            logger.exception(
-                "Error handling client %s:%d: %s", *address, e
-            )
+            logger.exception("Error handling client %s:%d: %s", *address, e)
         finally:
             try:
                 connection.close()
